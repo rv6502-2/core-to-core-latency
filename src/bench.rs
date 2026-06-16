@@ -78,7 +78,7 @@ pub mod csv_output {
 }
 
 pub trait Bench {
-    fn run(&self, cores: (CoreId, CoreId), clock: &Clock, num_iterations: Count, num_samples: Count) -> Vec<Vec<f64>>;
+    fn run(&self, args: &CliArgs, cores: (CoreId, CoreId), clock: &Clock, num_iterations: Count, num_samples: Count) -> Vec<Vec<f64>>;
     /// Whether the bench on (i,j) is the same as the bench on (j,i)
     fn is_symmetric(&self) -> bool { true }
     /// Number of addresses this benchmark tests
@@ -191,7 +191,7 @@ pub fn run_bench(cores: &[CoreId], clock: &Clock, args: &CliArgs, bench: impl Be
 
             let core_j = cores[j];
             // We add 1 warmup cycle first
-            let durations = bench.run((core_i, core_j), clock, num_iterations, 1+num_samples);
+            let durations = bench.run(args, (core_i, core_j), clock, num_iterations, 1+num_samples);
 
             pair_means.clear();
             pair_medians.clear();

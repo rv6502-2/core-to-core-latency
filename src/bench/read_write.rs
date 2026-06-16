@@ -3,6 +3,7 @@ use core_affinity::CoreId;
 use std::sync::Barrier;
 use std::sync::atomic::{Ordering, AtomicBool};
 use quanta::Clock;
+use crate::CliArgs;
 
 use super::Count;
 
@@ -30,6 +31,7 @@ impl super::Bench for Bench {
     // Thread 2 writes to cache line 2 and read cache line 1
     fn run(
         &self,
+        _args: &CliArgs,
         (ping_core, pong_core): (CoreId, CoreId),
         clock: &Clock,
         num_round_trips: Count,

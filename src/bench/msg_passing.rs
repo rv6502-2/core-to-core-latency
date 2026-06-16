@@ -3,6 +3,7 @@ use core_affinity::CoreId;
 use std::sync::Barrier;
 use std::sync::atomic::{Ordering, AtomicU64};
 use quanta::Clock;
+use crate::CliArgs;
 
 use super::Count;
 use crate::utils;
@@ -31,6 +32,7 @@ impl super::Bench for Bench {
 
     fn run(
         &self,
+        _args: &CliArgs,
         (recv_core, send_core): (CoreId, CoreId),
         clock: &Clock,
         num_iterations: Count,

@@ -3,6 +3,8 @@ use std::sync::Barrier;
 use std::sync::atomic::{AtomicBool, Ordering};
 use quanta::Clock;
 use super::Count;
+use memmap2::MmapMut;
+use crate::CliArgs;
 
 const PING: bool = false;
 const PONG: bool = true;
@@ -36,8 +38,10 @@ impl Bench {
 }
 
 impl super::Bench for Bench {
+
     fn run(
         &self,
+        args: &CliArgs,
         (ping_core, pong_core): (CoreId, CoreId),
         clock: &Clock,
         num_round_trips: Count,
@@ -47,6 +51,28 @@ impl super::Bench for Bench {
         let num_addresses = state.flags.len();
 
         let mut all_results = Vec::with_capacity(num_addresses);
+        let mut mmap_flags = Vec::<CachelinePadded>::new();
+
+        let flags = &{
+            if args.no_recycling {
+                core_affinity::set_for_current(ping_core);
+
+                let size = CACHELINE_SIZE * num_addresses;
+
+                let mmap = MmapMut::map_anon(size).expect("map_anon failed");
+
+                mmap_flags = unsafe {
+                    Vec::<CachelinePadded>::from_raw_parts(mmap.as_ptr() as *mut CachelinePadded, num_addresses, num_addresses)
+                };
+                let _ = std::mem::ManuallyDrop::new(mmap);
+                for n in 0..mmap_flags.len() {
+                    mmap_flags[n as usize].flag = AtomicBool::new(PING);
+                }
+                &mmap_flags
+            } else {
+                &state.flags
+            }
+        };
 
         for addr_idx in 0..num_addresses {
             let results = crossbeam_utils::thread::scope(|s| {
@@ -54,8 +80,9 @@ impl super::Bench for Bench {
                     core_affinity::set_for_current(pong_core);
 
                     state.barrier.wait();
+                    let flag = &flags[addr_idx].flag;
                     for _ in 0..(num_round_trips*num_samples) {
-                        while state.flags[addr_idx].flag.compare_exchange(PING, PONG, Ordering::Relaxed, Ordering::Relaxed).is_err() {}
+                        while flag.compare_exchange(PING, PONG, Ordering::Relaxed, Ordering::Relaxed).is_err() {}
                     }
                 });
 
@@ -66,10 +93,11 @@ impl super::Bench for Bench {
 
                     state.barrier.wait();
 
+                    let flag = &flags[addr_idx].flag;
                     for _ in 0..num_samples {
                         let start = clock.raw();
                         for _ in 0..num_round_trips {
-                            while state.flags[addr_idx].flag.compare_exchange(PONG, PING, Ordering::Relaxed, Ordering::Relaxed).is_err() {}
+                            while flag.compare_exchange(PONG, PING, Ordering::Relaxed, Ordering::Relaxed).is_err() {}
                         }
                         let end = clock.raw();
                         let duration = clock.delta(start, end).as_nanos();
@@ -87,6 +115,11 @@ impl super::Bench for Bench {
 
             // Reset the flag for the next iteration
             state.flags[addr_idx].flag.store(PING, Ordering::Relaxed);
+        }
+
+
+        if args.no_recycling {
+            let _ = std::mem::ManuallyDrop::new(mmap_flags);
         }
 
         all_results

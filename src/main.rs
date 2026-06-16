@@ -52,6 +52,11 @@ pub struct CliArgs {
     /// By default all cores are used.
     #[clap(short, long, require_delimiter=true, value_delimiter=',', value_parser)]
     cores: Vec<String>,
+
+    /// Enable allocating fresh anonymous pages for each core pairs. {n}
+    /// Those are "leaked" to insure they do not get reused until the benchmark ends.
+    #[clap(long, value_parser)]
+    no_recycling: bool,
 }
 
 fn parse_cores(specs: &[String], all_cores: &[CoreId]) -> Vec<CoreId> {
