@@ -422,6 +422,17 @@ core-to-core-latency --bench 1 --num_addresses 4
 Each address is a separate cache line. The benchmark runs each address sequentially
 per core pair and reports per-address statistics.
 
+### Using Only Fresh Memory Pages (`--no-recycling`)
+
+Allocate new unique memory for each cpu-pairs during CAS test using mmap.
+
+```bash
+# Allocate new unique memory pages for each cpu-pairs
+core-to-core-latency --bench 1 --no-recycling
+```
+
+This is necessary for properly measuring core latency on some systems like AMD EPYC and ThreadRipper.
+
 ### CSV Output (`--csv`, `--csv-output-prefix`)
 
 Enable structured CSV file output:
